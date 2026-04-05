@@ -1,11 +1,13 @@
 import os
 import time
 from decimal import Decimal
+from time import perf_counter
 
 import httpx
 import jwt
 import psycopg
-from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
+from fastapi import Depends, FastAPI, Header, Request, HTTPException, Response, status
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, REGISTRY, generate_latest
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
@@ -35,6 +37,42 @@ CREATE TABLE IF NOT EXISTS books (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 """
+
+
+def get_or_create_counter(name: str, documentation: str, labelnames: tuple[str, ...]) -> Counter:
+    existing_collector = REGISTRY._names_to_collectors.get(name)
+    if existing_collector is not None:
+        return existing_collector
+
+    try:
+        return Counter(name, documentation, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors[name]
+
+
+def get_or_create_histogram(
+    name: str, documentation: str, labelnames: tuple[str, ...]
+) -> Histogram:
+    existing_collector = REGISTRY._names_to_collectors.get(name)
+    if existing_collector is not None:
+        return existing_collector
+
+    try:
+        return Histogram(name, documentation, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors[name]
+
+
+HTTP_REQUESTS_TOTAL = get_or_create_counter(
+    "http_requests_total",
+    "Total HTTP requests handled by the service",
+    ("service", "method", "path", "status_code"),
+)
+HTTP_REQUEST_DURATION_SECONDS = get_or_create_histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ("service", "method", "path"),
+)
 
 
 class BookRequest(BaseModel):
@@ -112,6 +150,26 @@ def require_staff(current_user: dict = Depends(get_current_user)) -> dict:
     return current_user
 
 
+@app.middleware("http")
+async def collect_metrics(request: Request, call_next):
+    request_path = request.url.path
+    start_time = perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duration = perf_counter() - start_time
+        HTTP_REQUESTS_TOTAL.labels(
+            SERVICE_NAME, request.method, request_path, str(status_code)
+        ).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(
+            SERVICE_NAME, request.method, request_path
+        ).observe(duration)
+
+
 def register_service_with_consul(
     max_attempts: int = 15, delay_seconds: int = 2
 ) -> None:
@@ -183,6 +241,11 @@ def health_check() -> dict[str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database unavailable: {exc}",
         ) from exc
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/books")

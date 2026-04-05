@@ -19,6 +19,7 @@ spec:
         app: auth-service
         tier: backend
     spec:
+      serviceAccountName: app-service-account
       containers:
         - name: auth-service
           image: finalproject-auth-service:latest
@@ -105,6 +106,7 @@ spec:
         app: book-service
         tier: backend
     spec:
+      serviceAccountName: app-service-account
       containers:
         - name: book-service
           image: finalproject-book-service:latest
@@ -186,6 +188,7 @@ spec:
         app: order-service
         tier: backend
     spec:
+      serviceAccountName: app-service-account
       containers:
         - name: order-service
           image: finalproject-order-service:latest
