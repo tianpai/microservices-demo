@@ -1,0 +1,150 @@
+services:
+  consul:
+    image: hashicorp/consul:1.20
+    command: agent -dev -client=0.0.0.0
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  book-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: book_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - book_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d book_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@auth-db:5432/auth_db
+      JWT_SECRET: demo-jwt-secret
+      JWT_ALGORITHM: HS256
+      TOKEN_EXPIRE_HOURS: 24
+      CONSUL_ENABLED: "true"
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: auth-service
+      SERVICE_HOST: auth-service
+      SERVICE_PORT: 8001
+      SERVICE_HEALTH_PATH: /auth/health
+    ports:
+      - "8001:8001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/auth/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  book-service:
+    build:
+      context: .
+      dockerfile: services/book-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@book-db:5432/book_db
+      JWT_SECRET: demo-jwt-secret
+      JWT_ALGORITHM: HS256
+      CONSUL_ENABLED: "true"
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: book-service
+      SERVICE_HOST: book-service
+      SERVICE_PORT: 8002
+      SERVICE_HEALTH_PATH: /books/health
+    ports:
+      - "8002:8002"
+    depends_on:
+      book-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/books/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@order-db:5432/order_db
+      JWT_SECRET: demo-jwt-secret
+      JWT_ALGORITHM: HS256
+      CONSUL_ENABLED: "true"
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: order-service
+      SERVICE_HOST: order-service
+      SERVICE_PORT: 8003
+      SERVICE_HEALTH_PATH: /orders/health
+      BOOK_SERVICE_NAME: book-service
+      BOOK_SERVICE_URL: http://book-service:8002
+    ports:
+      - "8003:8003"
+    depends_on:
+      order-db:
+        condition: service_healthy
+      book-service:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/orders/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  auth_db_data:
+  book_db_data:
+  order_db_data:

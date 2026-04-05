@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: book-order-config
+data:
+  AUTH_DB_NAME: auth_db
+  BOOK_DB_NAME: book_db
+  ORDER_DB_NAME: order_db
+  JWT_ALGORITHM: HS256
+  TOKEN_EXPIRE_HOURS: "24"
+  CONSUL_ENABLED: "false"
+  BOOK_SERVICE_NAME: book-service
+  BOOK_SERVICE_URL: http://book-service:8002

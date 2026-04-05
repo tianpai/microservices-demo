@@ -1,0 +1,139 @@
+name: CI-CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker-compose-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose stack
+        run: docker compose up -d --build
+
+      - name: Wait for local services
+        run: |
+          for url in \
+            http://127.0.0.1:8001/auth/health \
+            http://127.0.0.1:8002/books/health \
+            http://127.0.0.1:8003/orders/health \
+            http://127.0.0.1:8500/v1/status/leader
+          do
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "$url" > /dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "Service did not become ready: $url"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman smoke tests against Docker Compose
+        run: >
+          newman run "postman/Book Order Demo.postman_collection.json"
+          -e "postman/Book Order Demo Local.postman_environment.json"
+
+      - name: Show Docker Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose down -v
+
+  kubernetes-deploy:
+    needs: docker-compose-smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/v1.34.1/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64"
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Create kind cluster
+        run: kind create cluster --wait 120s
+
+      - name: Build Docker images for Kubernetes
+        run: |
+          docker build -t finalproject-auth-service:latest -f services/auth-service/Dockerfile .
+          docker build -t finalproject-book-service:latest -f services/book-service/Dockerfile .
+          docker build -t finalproject-order-service:latest -f services/order-service/Dockerfile .
+
+      - name: Load Docker images into kind
+        run: |
+          kind load docker-image finalproject-auth-service:latest
+          kind load docker-image finalproject-book-service:latest
+          kind load docker-image finalproject-order-service:latest
+
+      - name: Deploy application to Kubernetes
+        run: kubectl apply -k k8s
+
+      - name: Wait for database deployments
+        run: |
+          kubectl rollout status deployment/auth-db -n book-order-demo --timeout=180s
+          kubectl rollout status deployment/book-db -n book-order-demo --timeout=180s
+          kubectl rollout status deployment/order-db -n book-order-demo --timeout=180s
+
+      - name: Wait for application deployments
+        run: |
+          kubectl rollout status deployment/auth-service -n book-order-demo --timeout=180s
+          kubectl rollout status deployment/book-service -n book-order-demo --timeout=180s
+          kubectl rollout status deployment/order-service -n book-order-demo --timeout=180s
+
+      - name: Check HPA resource
+        run: kubectl get hpa -n book-order-demo
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Port-forward Kubernetes services
+        run: |
+          nohup kubectl port-forward -n book-order-demo service/auth-service 8001:8001 >/tmp/auth-port-forward.log 2>&1 &
+          nohup kubectl port-forward -n book-order-demo service/book-service 8002:8002 >/tmp/book-port-forward.log 2>&1 &
+          nohup kubectl port-forward -n book-order-demo service/order-service 8003:8003 >/tmp/order-port-forward.log 2>&1 &
+          sleep 10
+
+      - name: Run Postman smoke tests against Kubernetes
+        run: >
+          newman run "postman/Book Order Demo.postman_collection.json"
+          -e "postman/Book Order Demo Local.postman_environment.json"
+
+      - name: Show Kubernetes state on failure
+        if: failure()
+        run: |
+          kubectl get all -n book-order-demo
+          kubectl describe deployment auth-service -n book-order-demo
+          kubectl describe deployment book-service -n book-order-demo
+          kubectl describe deployment order-service -n book-order-demo
+          kubectl logs deployment/auth-service -n book-order-demo --tail=100
+          kubectl logs deployment/book-service -n book-order-demo --tail=100
+          kubectl logs deployment/order-service -n book-order-demo --tail=100
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster
