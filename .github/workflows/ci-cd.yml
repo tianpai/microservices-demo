@@ -121,7 +121,7 @@ jobs:
       - name: Run Postman smoke tests against Kubernetes
         run: >
           newman run "postman/Book Order Demo.postman_collection.json"
-          -e "postman/Book Order Demo Local.postman_environment.json"
+          -e "postman/Book Order Demo Kubernetes.postman_environment.json"
 
       - name: Show Kubernetes state on failure
         if: failure()
