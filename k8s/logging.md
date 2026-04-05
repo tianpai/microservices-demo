@@ -8,6 +8,8 @@ This project uses:
 
 These manifests are kept separate from the main `kubectl apply -k k8s` path so the logging stack does not make the CI cluster heavier than necessary.
 
+Kibana is configured with a larger heap and memory limit than the application services because the default lightweight settings were not enough for a local Kind demo cluster.
+
 ## Apply the logging stack
 
 ```bash

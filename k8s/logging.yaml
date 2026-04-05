@@ -86,6 +86,8 @@ spec:
           env:
             - name: ELASTICSEARCH_HOSTS
               value: http://elasticsearch:9200
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=768
           ports:
             - containerPort: 5601
           readinessProbe:
@@ -102,11 +104,11 @@ spec:
             periodSeconds: 20
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 250m
+              memory: 768Mi
             limits:
-              cpu: 300m
-              memory: 512Mi
+              cpu: 500m
+              memory: 1Gi
 ---
 apiVersion: v1
 kind: Service
