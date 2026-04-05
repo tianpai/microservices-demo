@@ -73,6 +73,60 @@ To satisfy the service discovery requirement without overengineering:
 
 This gives the project an explicit discovery mechanism for the demo while keeping Kubernetes deployment simple.
 
+### Architecture Diagrams
+
+#### Service Interaction Diagram
+
+```mermaid
+flowchart LR
+    Client[Client or Postman]
+    Consul[Consul local mode]
+
+    subgraph Services
+        Auth[auth-service]
+        Book[book-service]
+        Order[order-service]
+    end
+
+    AuthDB[(auth-db)]
+    BookDB[(book-db)]
+    OrderDB[(order-db)]
+
+    Client -->|register or login| Auth
+    Client -->|JWT + book requests| Book
+    Client -->|JWT + order requests| Order
+
+    Auth --> AuthDB
+    Book --> BookDB
+    Order --> OrderDB
+    Order -->|verify book exists| Book
+
+    Auth -. local registration .-> Consul
+    Book -. local registration .-> Consul
+    Order -. local registration .-> Consul
+```
+
+#### Order Creation Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as auth-service
+    participant Order as order-service
+    participant Book as book-service
+    participant OrderDB as order-db
+
+    Client->>Auth: POST /auth/login
+    Auth-->>Client: JWT
+    Client->>Order: POST /orders with JWT and book_id
+    Order->>Order: verify JWT locally
+    Order->>Book: GET /books/{id}
+    Book-->>Order: book exists
+    Order->>OrderDB: INSERT order
+    OrderDB-->>Order: order saved
+    Order-->>Client: 201 Created
+```
+
 ## Services
 
 ### 1. auth-service
@@ -193,6 +247,7 @@ Business flow:
 - Service Discovery: Consul
 - Orchestration: Kubernetes
 - Monitoring: Prometheus and Grafana
+- Centralized Logging: Fluentd, Elasticsearch, Kibana
 - CI/CD: GitHub Actions
 
 Implementation notes:

@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+data:
+  fluent.conf: |
+    <source>
+      @type tail
+      @id in_tail_book_order_demo_logs
+      path /var/log/containers/*_book-order-demo_*.log
+      pos_file /var/log/fluentd-book-order-demo-containers.log.pos
+      tag book-order-demo.kubernetes
+      read_from_head true
+      follow_inodes true
+      refresh_interval 5
+      path_key log_file
+      <parse>
+        @type regexp
+        expression /^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<flags>[^ ]*) (?<log>.*)$/
+        time_key time
+        time_type string
+        time_format %Y-%m-%dT%H:%M:%S.%N%:z
+        keep_time_key true
+      </parse>
+    </source>
+
+    <filter book-order-demo.kubernetes>
+      @type record_transformer
+      <record>
+        namespace book-order-demo
+      </record>
+    </filter>
+
+    <match book-order-demo.kubernetes>
+      @type elasticsearch
+      host "#{ENV['FLUENT_ELASTICSEARCH_HOST']}"
+      port "#{ENV['FLUENT_ELASTICSEARCH_PORT']}"
+      scheme http
+      logstash_format true
+      logstash_prefix book-order-demo
+      include_tag_key true
+      tag_key fluentd_tag
+      reconnect_on_error true
+      reload_on_failure true
+      request_timeout 15s
+      suppress_type_name true
+    </match>

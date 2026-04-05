@@ -26,6 +26,8 @@ design.md
 demo-flow.md
 ```
 
+Architecture details and Mermaid diagrams are in [design.md](design.md).
+
 ## Run Locally
 
 Prerequisites:
@@ -107,9 +109,24 @@ NodePorts:
 
 Metrics Server setup for HPA is documented in [k8s/metrics-server.md](k8s/metrics-server.md).
 
+Centralized logging is provided as a separate add-on:
+
+```bash
+kubectl apply -f k8s/logging-config.yaml -n book-order-demo
+kubectl apply -f k8s/logging.yaml -n book-order-demo
+```
+
+Logging details are in [k8s/logging.md](k8s/logging.md).
+
 ## Monitoring
 
 Each service exposes `/metrics`. Prometheus scrapes the application metrics, and Grafana is preconfigured with a basic dashboard for the demo.
+
+## Logging
+
+Fluentd collects Kubernetes container logs from the project namespace, Elasticsearch stores them, and Kibana exposes them on NodePort `30601`.
+
+For local Kind demos, use the commands in [k8s/logging.md](k8s/logging.md) to port-forward Kibana or query Elasticsearch directly.
 
 ## CI/CD
 
