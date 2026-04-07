@@ -1,9 +1,5 @@
 # Book Order Demo Design
 
-## Goal
-
-Build the smallest microservices project that still satisfies the course requirements.
-
 This project is a demo-only book ordering system with:
 
 - 3 microservices
@@ -272,23 +268,6 @@ The project will start with this minimal structure:
 - `k8s/`
 - `.github/workflows/`
 
-## Implementation Order
-
-Build the project in this order:
-
-1. update the design and lock the stack to Python and FastAPI
-2. create the folder structure for the three services, Docker Compose, Kubernetes manifests, and CI workflow
-3. build `auth-service` first with registration, login, password hashing, JWT generation, and health check
-4. build `book-service` second with book CRUD and role-based access for `staff`
-5. build `order-service` third with order creation, order listing, and the call to `book-service`
-6. add Consul registration and discovery after all three APIs work locally
-7. Dockerize all services and databases, and make sure app containers do not run as root
-8. add unit, integration, and end-to-end tests
-9. add Kubernetes manifests including Deployment, Service, ConfigMap, Secret, and HPA for `order-service`
-10. add monitoring and CI/CD last
-
-This order gets a working demo ready as early as possible and leaves lower-priority platform work for later.
-
 ## Local Development with Docker Compose
 
 Docker Compose will start:
@@ -314,8 +293,6 @@ For local demo mode:
 - each microservice registers itself with Consul
 - each microservice exposes a health endpoint for registration checks
 - `order-service` resolves `book-service` through Consul before making internal API calls
-
-This is enough to demonstrate service registration and discovery without adding a service mesh or advanced networking features.
 
 ## Kubernetes Deployment
 
@@ -392,9 +369,7 @@ GitHub Actions pipeline will:
 4. create a local Kind cluster in CI
 5. apply Kubernetes manifests
 6. run a smoke test against the deployed services
-
-This is enough for the course demo without adding unnecessary complexity.
-
+7. 
 ## Monitoring and Logging
 
 Monitoring:
@@ -406,29 +381,3 @@ Logging:
 - use Kubernetes pod logs for cluster debugging
 
 This keeps observability simple and demo-friendly.
-
-## Demo Flow
-
-The final demo can follow this sequence:
-
-1. start the system with Docker Compose or Kubernetes
-2. register or log in as `staff`
-3. create a book
-4. log in as `customer`
-5. view the book catalog
-6. create an order
-7. show that services are registered in Consul
-8. show the order in `order-service`
-9. show Prometheus/Grafana briefly
-
-## Why This Design
-
-This design is intentionally minimal:
-
-- only 3 services
-- same database technology for every service
-- simple business logic
-- clear JWT and role-based authorization
-- explicit service discovery with minimal extra setup
-- enough microservice communication to satisfy the rubric
-- practical to finish in limited time
