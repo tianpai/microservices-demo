@@ -98,6 +98,14 @@ make demo-up
 make demo-forward
 ```
 
+`make demo-forward` now prints clickable local URLs for the forwarded services,
+including:
+
+- `http://localhost:9090` for Prometheus
+- `http://localhost:3000` for Grafana
+- `http://localhost:9200` for Elasticsearch
+- `http://localhost:5601` for Kibana
+
 Then run the Postman collection with:
 - `postman/Book Order Demo.postman_collection.json`
 - `postman/Book Order Demo Kubernetes.postman_environment.json`
@@ -123,6 +131,14 @@ Build the service images manually:
 docker build -t finalproject-auth-service:latest -f services/auth-service/Dockerfile .
 docker build -t finalproject-book-service:latest -f services/book-service/Dockerfile .
 docker build -t finalproject-order-service:latest -f services/order-service/Dockerfile .
+```
+
+For the local Kind demo, a fresh `zsh` shell should already have
+`KUBECONFIG=/tmp/book-order-demo.kubeconfig` from `~/.zshrc`. If not, point
+`kubectl` at the generated kubeconfig manually:
+
+```bash
+export KUBECONFIG=/tmp/book-order-demo.kubeconfig
 ```
 
 Then apply the Kubernetes manifests:
@@ -173,11 +189,19 @@ make demo-down
 
 Each service exposes `/metrics`. Prometheus scrapes the application metrics, and Grafana is preconfigured with a basic dashboard for the demo.
 
+For the local Kind demo, `make demo-forward` exposes:
+
+- `http://localhost:9090` for Prometheus
+- `http://localhost:3000` for Grafana
+
 ## Logging
 
 Fluentd collects Kubernetes container logs from the project namespace, Elasticsearch stores them, and Kibana exposes them on NodePort `30601`.
 
-For local Kind demos, use the commands in [k8s/logging.md](k8s/logging.md) to port-forward Kibana or query Elasticsearch directly.
+For local Kind demos, `make demo-forward` exposes:
+
+- `http://localhost:9200` for Elasticsearch
+- `http://localhost:5601` for Kibana
 
 In Kibana:
 - create a data view for `book-order-demo-*`

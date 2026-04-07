@@ -10,6 +10,14 @@ These manifests are kept separate from the main `kubectl apply -k k8s` path so t
 
 Kibana is configured with a larger heap and memory limit than the application services because the default lightweight settings were not enough for a local Kind demo cluster.
 
+For the local Kind demo, a fresh `zsh` shell should already have
+`KUBECONFIG=/tmp/book-order-demo.kubeconfig` from `~/.zshrc`. If not, point
+`kubectl` at the generated kubeconfig manually:
+
+```bash
+export KUBECONFIG=/tmp/book-order-demo.kubeconfig
+```
+
 ## Apply the logging stack
 
 ```bash
@@ -27,7 +35,18 @@ kubectl get pods -n book-order-demo -l tier=logging
 
 Kibana is exposed on NodePort `30601`.
 
-For a local Kind cluster, port-forward is the safer access method:
+For a local Kind cluster, the project helper script is the easiest access method:
+
+```bash
+make demo-forward
+```
+
+That forwards and prints clickable local URLs for:
+
+- `http://localhost:9200` for Elasticsearch
+- `http://localhost:5601` for Kibana
+
+Manual port-forward is still available if needed:
 
 ```bash
 kubectl port-forward -n book-order-demo service/kibana 5601:5601

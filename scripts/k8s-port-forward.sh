@@ -11,7 +11,9 @@ SERVICES=(
   "auth-service:8001:8001"
   "book-service:8002:8002"
   "order-service:8003:8003"
+  "prometheus:9090:9090"
   "grafana:3000:3000"
+  "elasticsearch:9200:9200"
   "kibana:5601:5601"
 )
 
@@ -67,6 +69,17 @@ show_status() {
       echo "  log: $log_file"
     fi
   done
+
+  cat <<'EOF'
+
+Metrics:
+  Prometheus: http://localhost:9090
+  Grafana: http://localhost:3000
+
+Logging:
+  Elasticsearch: http://localhost:9200
+  Kibana: http://localhost:5601
+EOF
 }
 
 usage() {

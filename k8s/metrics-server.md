@@ -10,6 +10,14 @@ Metrics Server is required if the `order-service` HPA should actually receive CP
 
 Without Metrics Server, the HPA object can be created, but autoscaling will not function.
 
+For the local Kind demo, a fresh `zsh` shell should already have
+`KUBECONFIG=/tmp/book-order-demo.kubeconfig` from `~/.zshrc`. If not, point
+`kubectl` at the generated kubeconfig manually:
+
+```bash
+export KUBECONFIG=/tmp/book-order-demo.kubeconfig
+```
+
 ## Install
 
 Use the official Metrics Server manifest:
