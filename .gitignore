@@ -6,3 +6,4 @@ __pycache__/
 .env
 *.pyc
 kubernetes-demo-local.md
+/demo-flow.md
